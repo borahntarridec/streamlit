@@ -557,6 +557,34 @@ def test_number_input():
     repr(sr.number_input[0])
 
 
+def test_pills():
+    def script():
+        import streamlit as st
+
+        st.pills("one", options=["a", "b", "c"], selection_mode="single", default="b")
+        st.pills("two", options=["zero", "one", "two"], selection_mode="multi")
+
+    at = AppTest.from_function(script).run()
+
+    assert at.pills[0].value == "b"
+    assert at.pills[1].value == []
+
+    sr2 = at.pills[0].select("c").run()
+    assert sr2.pills[0].value == "c"
+    assert sr2.pills[1].value == []
+
+    sr3 = sr2.pills[1].select("zero").select("one").run()
+    assert sr3.pills[0].value == ["b"]
+    assert set(sr3.pills[1].value) == {"zero", "one"}
+
+    sr4 = sr3.pills[0].unselect("b").run()
+    assert sr4.pills[0].value == []
+    assert set(sr3.pills[1].value) == {}
+
+    # Verify that creating the reprs does not throw
+    repr(at.pills[0])
+
+
 def test_selectbox():
     script = AppTest.from_string(
         """

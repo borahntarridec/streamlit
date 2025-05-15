@@ -63,6 +63,7 @@ from streamlit.testing.v1.element_tree import (
     Multiselect,
     Node,
     NumberInput,
+    Pills,
     Radio,
     Selectbox,
     SelectSlider,
@@ -772,6 +773,20 @@ class AppTest:
             ``at.number_input(key="my_key")`` for a widget with a given key.
         """
         return self._tree.number_input
+
+    @property
+    def pills(self) -> WidgetList[Pills[Any]]:
+        """Sequence of all ``st.pills`` widgets.
+
+        Returns
+        -------
+        WidgetList of Pills
+            Sequence of all ``st.pills`` widgets. Individual widgets can
+            be accessed from a WidgetList by index (order on the page) or key.
+            For example, ``at.pills[0]`` for the first widget or
+            ``at.pills(key="my_key")`` for a widget with a given key.
+        """
+        return self._tree.pills
 
     @property
     def radio(self) -> WidgetList[Radio[Any]]:

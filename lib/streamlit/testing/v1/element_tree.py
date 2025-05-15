@@ -71,6 +71,7 @@ if TYPE_CHECKING:
     from streamlit.proto.Metric_pb2 import Metric as MetricProto
     from streamlit.proto.MultiSelect_pb2 import MultiSelect as MultiSelectProto
     from streamlit.proto.NumberInput_pb2 import NumberInput as NumberInputProto
+    from streamlit.proto.Pills_pb2 import Pills as PillsProto
     from streamlit.proto.Radio_pb2 import Radio as RadioProto
     from streamlit.proto.Selectbox_pb2 import Selectbox as SelectboxProto
     from streamlit.proto.Text_pb2 import Text as TextProto
@@ -923,6 +924,96 @@ class NumberInput(Widget):
 
 
 @dataclass(repr=False)
+class Pills(Widget, Generic[T]):
+    """A representation of ``st.pills``."""
+
+    _value: list[T] | None
+
+    proto: PillsProto = field(repr=False)
+    label: str
+    options: list[str]
+    selection_mode: str
+    help: str
+    form_id: str
+
+    def __init__(self, proto: PillsProto, root: ElementTree) -> None:
+        super().__init__(proto, root)
+        self.type = "pills"
+        self.options = list(proto.options)
+
+    @property
+    def _widget_state(self) -> WidgetState:
+        """Protobuf message representing the state of the widget, including
+        any interactions that have happened.
+        Should be the same as the frontend would produce for those interactions.
+        """
+        ws = WidgetState()
+        ws.id = self.id
+        ws.string_array_value.data[:] = self.values
+        return ws
+
+    @property
+    def value(self) -> list[T]:
+        """The currently selected values from the options. (list)"""  # noqa: D400
+        if self._value is not None:
+            return self._value
+        state = self.root.session_state
+        assert state
+        return cast("list[T]", state[self.id])
+
+    @property
+    def indices(self) -> Sequence[int]:
+        """The indices of the currently selected values from the options. (list)"""  # noqa: D400
+        return [self.options.index(self.format_func(v)) for v in self.value]
+
+    @property
+    def values(self) -> Sequence[str]:
+        """The currently selected values from the options. (list)"""  # noqa: D400
+        return [self.format_func(v) for v in self.value]
+
+    @property
+    def format_func(self) -> Callable[[Any], Any]:
+        """The widget's formatting function for displaying options. (callable)"""  # noqa: D400
+        ss = self.root.session_state
+        return cast("Callable[[Any], Any]", ss[TESTING_KEY][self.id])
+
+    def set_value(self, v: list[T]) -> Pills[T]:
+        """Set the value of the pills widget. (list)"""  # noqa: D400
+
+        self._value = v
+        return self
+
+    def select(self, v: T) -> Pills[T]:
+        """
+        Add a selection to the widget. Do nothing if the value is already selected.\
+        If testing a pills widget with repeated options, use ``set_value``\
+        instead.
+        """
+        current = self.value
+        if v in current:
+            return self
+        new = current.copy()
+        new.append(v)
+        self.set_value(new)
+        return self
+
+    def unselect(self, v: T) -> Pills[T]:
+        """
+        Remove a selection from the widget. Do nothing if the value is not\
+        already selected. If a value is selected multiple times, the first\
+        instance is removed.
+        """
+        current = self.value
+        if v not in current:
+            return self
+        new = current.copy()
+        while v in new:
+            new.remove(v)
+        self.set_value(new)
+        return self
+
+
+@dataclass(repr=False)
 class Radio(Widget, Generic[T]):
     """A representation of ``st.radio``."""
 
@@ -1561,6 +1652,10 @@ class Block:
         return WidgetList(self.get("number_input"))  # type: ignore
 
     @property
+    def pills(self) -> WidgetList[Pills[Any]]:
+        return WidgetList(self.get("pills"))  # type: ignore
+
+    @property
     def radio(self) -> WidgetList[Radio[Any]]:
         return WidgetList(self.get("radio"))  # type: ignore
 
@@ -1998,6 +2093,8 @@ def parse_tree_from_messages(messages: list[ForwardMsg]) -> ElementTree:
                 new_node = Multiselect(elt.multiselect, root=root)
             elif ty == "number_input":
                 new_node = NumberInput(elt.number_input, root=root)
+            elif ty == "pills":
+                new_node = Pills(elt.pills, root=root)
             elif ty == "radio":
                 new_node = Radio(elt.radio, root=root)
             elif ty == "selectbox":
